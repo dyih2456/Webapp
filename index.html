@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>طلبات</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #121212; font-family: 'Arial', sans-serif; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: start; min-height: 100vh; }
+    h1 { text-align: center; color: #2196f3; margin-top: 20px; }
+    #clearAll { position: fixed; top: 10px; left: 10px; font-size: 12px; padding: 6px 10px; background-color: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000; }
+    .form-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 20px 0; }
+    input[type="text"], textarea, select { width: 300px; padding: 16px; font-size: 18px; border: none; border-radius: 8px; background-color: #1e1e1e; color: white; }
+    textarea { resize: vertical; }
+    button { padding: 12px 20px; font-size: 16px; border: none; border-radius: 8px; background-color: #00e676; color: #000; cursor: pointer; }
+    button:hover { background-color: #00c853; }
+    .order { background-color: #1e1e1e; border-radius: 10px; padding: 12px; margin: 10px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+    .urgent { border-left: 4px solid #ffeb3b; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .status { padding: 6px 12px; border-radius: 6px; color: white; display: inline-block; }
+    .delivered { background-color: #4CAF50; }
+    .pending { background-color: #F44336; }
+    .delayed { background-color: #0d47a1 !important; }
+    .icon-button { background: none; border: none; font-size: 20px; cursor: pointer; margin: 2px; color: white; }
+    .search-input { width: 300px; padding: 10px; font-size: 16px; margin-bottom: 10px; border-radius: 8px; border: none; background-color: #1e1e1e; color: white; }
+    .stats { text-align: center; margin: 10px 0; }
+    .stats span { margin: 0 8px; font-size: 16px; display: inline-block; }
+    .stats .count-delayed { color: #2196F3; }
+    .stats .count-delivered { color: #4CAF50; }
+    .stats .count-pending { color: #F44336; }
+    .most-area { color: #ffeb3b; font-size: 14px; margin-top: 4px; }
+    .filters { display: flex; flex-direction: column; align-items: center; margin: 10px 0; gap: 10px; }
+    .urgent-icon { font-size: 14px; color: #ffeb3b; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <button id="clearAll" onclick="clearAll()">🗑</button>
+  <h1>طلبات</h1>
+  <div class="stats">
+    <span class="count-total">الكل: <span id="countTotal">0</span></span> |
+    <span class="count-delivered">موصل: <span id="countDelivered">0</span></span> |
+    <span class="count-pending">غير موصل: <span id="countPending">0</span></span> |
+    <span class="count-delayed">مؤجل: <span id="countDelayed">0</span></span>
+    <div class="most-area" id="mostArea"></div>
+  </div>
+  <div class="filters">
+    <select id="filterStatus" onchange="renderOrders()">
+      <option value="all">كل الحالات</option>
+      <option value="delivered">تم التوصيل</option>
+      <option value="pending">لم يتم التوصيل</option>
+      <option value="delayed">مؤجل</option>
+    </select>
+    <select id="filterArea" onchange="renderOrders()">
+      <option value="all">كل المناطق</option>
+    </select>
+  </div>
+  <div class="form-container">
+    <input type="text" id="phone" placeholder="رقم الزبون">
+    <input type="text" id="area" placeholder="عنوان الزبون (المنطقة)">
+    <input type="text" id="track" placeholder="رقم التتبع">
+    <textarea id="note" placeholder="ملاحظات (اختياري)"></textarea>
+    <label><input type="checkbox" id="urgent"> مستعجل ♿️</label>
+    <button onclick="addOrder()">إضافة الطلب</button>
+    <input class="search-input" type="text" id="searchBox" placeholder="بحث 🔍" onkeyup="renderOrders()" />
+  </div>
+  <div id="orders"></div>
+  <script>
+    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+
+    function saveOrders() {
+      localStorage.setItem('orders', JSON.stringify(orders));
+    }
+
+    function updateAreaFilter() {
+      const areaSet = new Set(orders.map(o => o.area));
+      const areaFilter = document.getElementById('filterArea');
+      areaFilter.innerHTML = '<option value="all">كل المناطق</option>';
+      [...areaSet].forEach(area => {
+        const option = document.createElement('option');
+        option.value = area;
+        option.textContent = area;
+        areaFilter.appendChild(option);
+      });
+    }
+
+    function addOrder() {
+      const phone = document.getElementById('phone').value.trim();
+      const area = document.getElementById('area').value.trim();
+      const track = document.getElementById('track').value.trim();
+      const note = document.getElementById('note').value.trim();
+      const urgent = document.getElementById('urgent').checked;
+
+      if (!phone || !area || !track) return;
+
+      orders.push({ id: Date.now(), phone, area, track, note, delivered: false, delayed: false, urgent });
+      saveOrders();
+      updateAreaFilter();
+      renderOrders();
+      clearInputs();
+    }
+
+    function clearInputs() {
+      ['phone', 'area', 'track', 'note', 'urgent'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.type === 'checkbox') el.checked = false;
+        else el.value = '';
+      });
+    }
+
+    function renderOrders() {
+      const container = document.getElementById('orders');
+      container.innerHTML = '';
+      const query = document.getElementById('searchBox').value.trim().toLowerCase();
+      const statusFilter = document.getElementById('filterStatus').value;
+      const areaFilter = document.getElementById('filterArea').value;
+      let countDelivered = 0, countPending = 0, countDelayed = 0;
+      const areaCounter = {};
+
+      orders.forEach(o => {
+        if (query && ![o.phone, o.area, o.track, o.note].some(f => f.toLowerCase().includes(query))) return;
+        if (statusFilter === 'delivered' && !o.delivered) return;
+        if (statusFilter === 'pending' && o.delivered) return;
+        if (statusFilter === 'delayed' && !o.delayed) return;
+        if (areaFilter !== 'all' && o.area !== areaFilter) return;
+
+        const div = document.createElement('div');
+        div.className = 'order' + (o.delayed ? ' delayed' : '') + (o.urgent ? ' urgent' : '');
+
+        areaCounter[o.area] = (areaCounter[o.area] || 0) + 1;
+
+        div.innerHTML = `
+          <div>${o.urgent ? '<span class="urgent-icon">♿️</span>' : ''}<strong>رقم الزبون:</strong> ${o.phone}</div>
+          <div><strong>المنطقة:</strong> ${o.area}</div>
+          <div><strong>رقم التتبع:</strong> ${o.track}</div>
+          ${o.note ? `<div><strong>ملاحظات:</strong> ${o.note}</div>` : ''}
+          <span class="status ${o.delivered ? 'delivered' : 'pending'}">
+            ${o.delivered ? 'تم التوصيل' : 'لم يتم التوصيل'}${o.delayed ? ' - مؤجل' : ''}
+          </span>
+          <div class="btn-row">
+            <button class="icon-button" onclick="toggleDelivered(${o.id})">${o.delivered ? '✔️' : '❌'}</button>
+            <button class="icon-button" onclick="editOrder(${o.id})">📝</button>
+            <button class="icon-button" onclick="deleteOrder(${o.id})">🗑</button>
+            <button class="icon-button" onclick="openWhatsApp('${o.phone}')">📧</button>
+            <button class="icon-button" onclick="toggleDelay(${o.id})">♻️</button>
+          </div>
+        `;
+
+        if (o.delivered) countDelivered++;
+        else countPending++;
+        if (o.delayed) countDelayed++;
+
+        container.appendChild(div);
+      });
+
+      document.getElementById('countTotal').textContent = orders.length;
+      document.getElementById('countDelivered').textContent = countDelivered;
+      document.getElementById('countPending').textContent = countPending;
+      document.getElementById('countDelayed').textContent = countDelayed;
+
+      // إظهار أكثر منطقة فيها طلبات
+      let topArea = '';
+      let maxCount = 0;
+      for (const area in areaCounter) {
+        if (areaCounter[area] > maxCount) {
+          topArea = area;
+          maxCount = areaCounter[area];
+        }
+      }
+      document.getElementById('mostArea').textContent = topArea ? `أكثر منطقة: ${topArea}` : '';
+    }
+
+    function toggleDelivered(id) {
+      const o = orders.find(o => o.id === id);
+      if (o) o.delivered = !o.delivered;
+      saveOrders(); renderOrders();
+    }
+
+    function toggleDelay(id) {
+      const o = orders.find(o => o.id === id);
+      if (o) o.delayed = !o.delayed;
+      saveOrders(); renderOrders();
+    }
+
+    function deleteOrder(id) {
+      const index = orders.findIndex(o => o.id === id);
+      if (index !== -1) orders.splice(index, 1);
+      saveOrders(); renderOrders();
+    }
+
+    function clearAll() {
+      if (confirm("هل أنت متأكد من حذف جميع الطلبات؟")) {
+        localStorage.removeItem('orders');
+        location.reload();
+      }
+    }
+
+    function openWhatsApp(phone) {
+      window.open(`https://wa.me/964${phone}`, '_blank');
+    }
+
+    function editOrder(id) {
+      // يمكن لاحقًا تطويره حسب الرغبة
+      alert("404.");
+    }
+
+    updateAreaFilter();
+    renderOrders();
+  </script>
+</body>
+</html>
