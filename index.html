@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>طلبات</title>
@@ -64,6 +66,23 @@
   <script>
     const orders = JSON.parse(localStorage.getItem('orders') || '[]');
 
+    // Function to convert Arabic numerals to English numerals
+    function convertArabicToEnglishNumerals(number) {
+      const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+      const englishNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      let englishNumber = '';
+      for (let i = 0; i < number.length; i++) {
+        const char = number[i];
+        const arabicIndex = arabicNumerals.indexOf(char);
+        if (arabicIndex !== -1) {
+          englishNumber += englishNumerals[arabicIndex];
+        } else {
+          englishNumber += char;
+        }
+      }
+      return englishNumber;
+    }
+
     function saveOrders() {
       localStorage.setItem('orders', JSON.stringify(orders));
     }
@@ -81,11 +100,14 @@
     }
 
     function addOrder() {
-      const phone = document.getElementById('phone').value.trim();
+      const phoneInput = document.getElementById('phone');
       const area = document.getElementById('area').value.trim();
       const track = document.getElementById('track').value.trim();
       const note = document.getElementById('note').value.trim();
       const urgent = document.getElementById('urgent').checked;
+
+      // Convert phone number from Arabic to English numerals
+      const phone = convertArabicToEnglishNumerals(phoneInput.value.trim());
 
       if (!phone || !area || !track) return;
 
@@ -192,7 +214,9 @@
     }
 
     function openWhatsApp(phone) {
-      window.open(`https://wa.me/964${phone}`, '_blank');
+      // Ensure phone number is in English numerals before opening WhatsApp link
+      const englishPhone = convertArabicToEnglishNumerals(phone);
+      window.open(`https://wa.me/964${englishPhone}`, '_blank');
     }
 
     function editOrder(id) {
@@ -205,3 +229,4 @@
   </script>
 </body>
 </html>
+
